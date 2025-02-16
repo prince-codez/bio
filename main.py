@@ -54,8 +54,8 @@ async def check_bio(client, message):
         warnings.setdefault(chat_id, {}).setdefault(user_id, 0)
         warnings[chat_id][user_id] += 1
 
-        if warnings[chat_id][user_id] < 3:
-            await message.reply_text(f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/3\n\n{user_name}, please remove the link from your bio or you will be muted!")
+        if warnings[chat_id][user_id] < 4:
+            await message.reply_text(f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/4\n\n{user_name}, please remove the link from your bio or you will be muted!")
         else:
             try:
                 await message.delete()
@@ -65,7 +65,6 @@ async def check_bio(client, message):
 
             mute_duration = 10800  # 3 hours in seconds
             mute_time = int(time.time()) + mute_duration
-
             muted_users[user_id] = mute_time
 
             try:
@@ -74,17 +73,20 @@ async def check_bio(client, message):
                     ChatPermissions(can_send_messages=False),
                     until_date=mute_time
                 )
-                keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔓 Unmute", callback_data=f"unmute_{user_id}")]])
+
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔓 Unmute", callback_data=f"unmute_{user_id}")]
+                ])
+
                 await client.send_message(
                     chat_id,
-                    f"🚫 {user_name} has been muted for 3 hours due to link in bio.\n"
-                    "🔇 They cannot send messages until an admin unmutes them.",
+                    f"🚫 {user_name} has been muted for 3 hours due to repeated violations.\n"
+                    "🔇 They cannot send messages until an admin unmutes them.\n\n"
+                    "⚠️ **Please remove the link from your bio to avoid further action.**",
                     reply_markup=keyboard
                 )
             except errors.ChatAdminRequired:
                 await message.reply_text("❌ I don't have permission to mute users.")
-
-            warnings[chat_id][user_id] = 0
 
 @app.on_callback_query()
 async def callback_handler(client, callback_query):
@@ -100,7 +102,8 @@ async def callback_handler(client, callback_query):
         target_user_id = int(data.split("_")[1])
         try:
             await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
-            del muted_users[target_user_id]
+            if target_user_id in muted_users:
+                del muted_users[target_user_id]
             await callback_query.message.edit_text(f"✅ {target_user_id} has been unmuted.")
             await client.send_message(chat_id, f"🔊 {target_user_id} can now send messages again.")
         except errors.ChatAdminRequired:
@@ -138,7 +141,7 @@ async def start_command(client, message):
     await message.reply_text(
         "🐬 Bɪᴏ Lɪɴᴋ Rᴇsᴛʀɪᴄᴛɪᴏɴ Bᴏᴛ 🐬\n\n"
         "🚫 This bot detects links in user bios and restricts them.\n"
-        "⚠️ After 3 warnings, the user is muted for 3 hours.\n"
+        "⚠️ After 4 warnings, the user is muted for 3 hours.\n"
         "✅ Admins and approved users are ignored.\n"
         "🔓 Admins can unmute users manually using /unmute @username.\n"
         "🛠 Use /approve to exclude a user from restriction.\n\n"
