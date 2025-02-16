@@ -36,7 +36,9 @@ async def approve_user(client, message):
         return
 
     approved_users.add(message.reply_to_message.from_user.id)
-    await message.reply_text(f"<b>✅ {message.reply_to_message.from_user.mention} has been approved.</b>", parse_mode=enums.ParseMode.HTML)
+    await message.reply_text(
+        f"<b>✅ {message.reply_to_message.from_user.mention} has been approved.</b>", parse_mode=enums.ParseMode.HTML
+    )
 
 @app.on_message(filters.group)
 async def check_bio(client, message):
@@ -55,7 +57,10 @@ async def check_bio(client, message):
         warnings[chat_id][user_id] += 1
 
         if warnings[chat_id][user_id] < 4:
-            await message.reply_text(f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/4\n\n{user_name}, please remove the link from your bio or you will be muted!")
+            await message.reply_text(
+                f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/4\n\n"
+                f"{user_name}, please remove the link from your bio or you will be muted!"
+            )
         else:
             try:
                 await message.delete()
@@ -74,19 +79,35 @@ async def check_bio(client, message):
                     until_date=mute_time
                 )
 
-                keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔓 Unmute", callback_data=f"unmute_{user_id}")]
-                ])
-
                 await client.send_message(
                     chat_id,
                     f"🚫 {user_name} has been muted for 3 hours due to repeated violations.\n"
                     "🔇 They cannot send messages until an admin unmutes them.\n\n"
-                    "⚠️ **Please remove the link from your bio to avoid further action.**",
-                    reply_markup=keyboard
+                    "⚠️ **Please remove the link from your bio to avoid further action.**"
                 )
             except errors.ChatAdminRequired:
                 await message.reply_text("❌ I don't have permission to mute users.")
+
+# ⚠️ **Naya Feature:** Muted user agar message kare to bot automatically ek warning bheje
+@app.on_message(filters.group)
+async def detect_muted_user(client, message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+
+    if user_id in muted_users:
+        user_full = await client.get_chat(user_id)
+        user_name = f"@{user_full.username}" if user_full.username else f"{user_full.first_name}"
+        
+        try:
+            await message.delete()
+        except errors.MessageDeleteForbidden:
+            pass  # Agar delete nahi ho sakta to ignore kar do
+
+        await client.send_message(
+            chat_id,
+            f"⚠️ {user_name}, aap mute ho chuke ho! Aap 3 ghante tak message nahi bhej sakte.\n"
+            "🚫 Apne bio se link hatao ya admin se baat karo."
+        )
 
 @app.on_callback_query()
 async def callback_handler(client, callback_query):
@@ -137,7 +158,7 @@ async def start_command(client, message):
         [InlineKeyboardButton("🔮 𝐀ᴅᴅ 𝐌ᴇ 𝐈ɴ 𝐘ᴏᴜʀ 𝐆ʀᴏᴜᴘ 🔮", url="https://t.me/bio_link_restriction_bot?startgroup=s&admin=delete_messages+manage_video_chats+pin_messages+invite_users")],
         [InlineKeyboardButton("☔ Uᴘᴅᴀᴛᴇs ☔", url="https://t.me/SWEETY_BOT_UPDATE")]
     ])
-    
+
     await message.reply_text(
         "🐬 Bɪᴏ Lɪɴᴋ Rᴇsᴛʀɪᴄᴛɪᴏɴ Bᴏᴛ 🐬\n\n"
         "🚫 This bot detects links in user bios and restricts them.\n"
