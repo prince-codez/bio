@@ -65,7 +65,7 @@ async def check_bio(client, message):
                 await message.reply_text("❌ I need delete permissions!")
                 return
 
-            mute_duration = 3600  
+            mute_duration = 86400  # 24 hours in seconds
             mute_time = int(time.time()) + mute_duration  
             muted_users[user_id] = mute_time  
 
@@ -77,8 +77,8 @@ async def check_bio(client, message):
                 )
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔓 Unmute", callback_data=f"unmute_{user_id}")]])
                 await message.reply_text(
-                    f"🔇 **{user_name} has been muted for 1 hour**\n"
-                    f"⏳ **Mute Duration:** 1 hour",
+                    f"🔇 **{user_name} has been muted for 24 hours**\n"
+                    f"⏳ **Mute Duration:** 24 hours",
                     reply_markup=keyboard
                 )
             except errors.ChatAdminRequired:
@@ -103,6 +103,7 @@ async def callback_handler(client, callback_query):
             await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
             del muted_users[target_user_id]
             await callback_query.message.edit_text(f"✅ {target_user_id} has been unmuted.")
+            await client.send_message(chat_id, f"🔊 **{target_user_id} has been unmuted by an admin.**")
         except errors.ChatAdminRequired:
             await callback_query.message.edit_text("❌ I don't have permission to unmute users.")
 
@@ -126,6 +127,7 @@ async def manual_unmute(client, message):
             await client.restrict_chat_member(chat_id, target_user, ChatPermissions(can_send_messages=True))
             del muted_users[target_user]
             await message.reply_text(f"✅ {message.reply_to_message.from_user.mention} has been unmuted.")
+            await client.send_message(chat_id, f"🔊 **{message.reply_to_message.from_user.mention} has been unmuted by an admin.**")
         except errors.ChatAdminRequired:
             await message.reply_text("❌ I don't have permission to unmute users.")
 
@@ -158,7 +160,7 @@ async def start_command(client, message):
     await message.reply_text(
         "**🔹 Bio Link Restriction Bot 🔹**\n\n"
         "🚫 This bot detects **links in user bios** and warns them.\n"
-        "⚠️ After **3 warnings**, the user is **muted for 1 hour**.\n"
+        "⚠️ After **3 warnings**, the user is **muted for 24 hours**.\n"
         "✅ Admins and approved users are ignored.\n"
         "🔓 Admins can **unmute users manually** using `/unmute @username`.\n"
         "🛠 Use `/approve` to exclude a user from restriction.\n\n"
