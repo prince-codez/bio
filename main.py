@@ -10,6 +10,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 app = Client("bot_session", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 url_pattern = re.compile(r'(https?://|www\.)[a-zA-Z0-9.\-]+(\.[a-zA-Z]{2,})+(/[a-zA-Z0-9._%+-]*)*')
+username_pattern = re.compile(r'@[\w]+')  # Regex to detect @username
 
 warnings = {}
 punishment = {}
@@ -33,7 +34,7 @@ async def start_command(client, message):
     
     await message.reply_text(
         "🐬 Bɪᴏ Lɪɴᴋ Rᴇsᴛʀɪᴄᴛɪᴏɴ Bᴏᴛ 🐬\n\n"
-        "🚫 ᴛʜɪs ʙᴏᴛ ᴅᴇᴛᴇᴄᴛs ʟɪɴᴋs ɪɴ ᴜsᴇʀ ʙɪᴏs ᴀɴᴅ ʀᴇsᴛʀɪᴄᴛs ᴛʜᴇᴍ.\n"
+        "🚫 ᴛʜɪs ʙᴏᴛ ᴅᴇᴛᴇᴄᴛs ʟɪɴᴋs ᴀɴᴅ ᴜsᴇʀɴᴀᴍᴇs ɪɴ ᴜsᴇʀ ʙɪᴏs ᴀɴᴅ ʀᴇsᴛʀɪᴄᴛs ᴛʜᴇᴍ.\n"
         "⚠️ ᴀғᴛᴇʀ 𝟹 ᴡᴀʀɴɪɴɢs, ᴛʜᴇ ᴜsᴇʀ ɪs ʀᴇsᴛʀɪᴄᴛᴇᴅ ғʀᴏᴍ sᴇɴᴅɪɴɢ ᴍᴇssᴀɢᴇs.\n"
         "✅ ᴀᴅᴍɪɴs ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇᴅ ᴜsᴇʀs ᴀʀᴇ ɪɢɴᴏʀᴇᴅ.\n"
         "🛠 ᴀᴅᴍɪɴs ᴜsᴇ /unmute ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n\n"
@@ -51,7 +52,8 @@ async def check_bio(client, message):
     bio = user_full.bio
     user_name = f"@{user_full.username} [<code>{user_id}</code>]" if user_full.username else f"{user_full.first_name} [<code>{user_id}</code>]"
 
-    if bio and re.search(url_pattern, bio):
+    # Check for links or @username in bio
+    if bio and (re.search(url_pattern, bio) or re.search(username_pattern, bio)):
         try:
             await message.delete()
         except errors.MessageDeleteForbidden:
@@ -61,32 +63,32 @@ async def check_bio(client, message):
         action = punishment.get(chat_id, default_punishment_set)
         if action[0] == "warn":
             warnings[user_id] = warnings.get(user_id, 0) + 1
-            sent_msg = await message.reply_text(f"{user_name} please remove any links from your bio. ⚠️ Warning {warnings[user_id]}/{action[1]}", parse_mode=enums.ParseMode.HTML)
+            sent_msg = await message.reply_text(f"{user_name} please remove any links or usernames from your bio. ⚠️ Warning {warnings[user_id]}/{action[1]}", parse_mode=enums.ParseMode.HTML)
 
             if warnings[user_id] >= action[1]:
                 try:
                     if action[2] == "mute":
                         await client.restrict_chat_member(chat_id, user_id, ChatPermissions())
                         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unmute", callback_data=f"unmute_{user_id}")]])
-                        await sent_msg.edit(f"{user_name} has been 🔇 muted for [ Link In Bio ].", reply_markup=keyboard)
+                        await sent_msg.edit(f"{user_name} has been 🔇 muted for [ Link/Username In Bio ].", reply_markup=keyboard)
                     elif action[2] == "ban":
                         await client.ban_chat_member(chat_id, user_id)
                         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unban", callback_data=f"unban_{user_id}")]])
-                        await sent_msg.edit(f"{user_name} has been 🔨 banned for [ Link In Bio ].", reply_markup=keyboard)
+                        await sent_msg.edit(f"{user_name} has been 🔨 banned for [ Link/Username In Bio ].", reply_markup=keyboard)
                 except errors.ChatAdminRequired:
                     await sent_msg.edit(f"I don't have permission to {action[2]} users.")
         elif action[0] == "mute":
             try:
                 await client.restrict_chat_member(chat_id, user_id, ChatPermissions())
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unmute", callback_data=f"unmute_{user_id}")]])
-                await message.reply_text(f"{user_name} has been 🔇 muted for [ Link In Bio ].", reply_markup=keyboard)
+                await message.reply_text(f"{user_name} has been 🔇 muted for [ Link/Username In Bio ].", reply_markup=keyboard)
             except errors.ChatAdminRequired:
                 await message.reply_text("I don't have permission to mute users.")
         elif action[0] == "ban":
             try:
                 await client.ban_chat_member(chat_id, user_id)
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unban", callback_data=f"unban_{user_id}")]])
-                await message.reply_text(f"{user_name} has been 🔨 banned for [ Link In Bio ].", reply_markup=keyboard)
+                await message.reply_text(f"{user_name} has been 🔨 banned for [ Link/Username In Bio ].", reply_markup=keyboard)
             except errors.ChatAdminRequired:
                 await message.reply_text("I don't have permission to ban users.")
     else:
@@ -120,58 +122,6 @@ async def callback_handler(client, callback_query):
         except errors.ChatAdminRequired:
             await callback_query.message.edit("❌ I don't have permission to unban users.")
         await callback_query.answer()
-
-@app.on_message(filters.group & filters.command("mute"))
-async def mute_user(client, message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    if not await is_admin(client, chat_id, user_id):
-        await message.reply_text("❌ You are not an administrator.", parse_mode=enums.ParseMode.HTML)
-        return
-
-    args = message.text.split(" ")
-    if len(args) < 2:
-        await message.reply_text("❌ Please provide a username or user ID to mute.", parse_mode=enums.ParseMode.HTML)
-        return
-
-    target_user = args[1]
-    try:
-        target_user_id = int(target_user)  # If it's a user ID
-    except ValueError:
-        target_user_id = (await client.get_users(target_user)).id  # If it's a username
-
-    try:
-        await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions())
-        await message.reply_text(f"✅ User <code>{target_user}</code> has been muted.", parse_mode=enums.ParseMode.HTML)
-    except errors.ChatAdminRequired:
-        await message.reply_text("❌ I don't have permission to mute this user.", parse_mode=enums.ParseMode.HTML)
-
-@app.on_message(filters.group & filters.command("unmute"))
-async def unmute_user(client, message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    if not await is_admin(client, chat_id, user_id):
-        await message.reply_text("❌ You are not an administrator.", parse_mode=enums.ParseMode.HTML)
-        return
-
-    args = message.text.split(" ")
-    if len(args) < 2:
-        await message.reply_text("❌ Please provide a username or user ID to unmute.", parse_mode=enums.ParseMode.HTML)
-        return
-
-    target_user = args[1]
-    try:
-        target_user_id = int(target_user)  # If it's a user ID
-    except ValueError:
-        target_user_id = (await client.get_users(target_user)).id  # If it's a username
-
-    try:
-        await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
-        await message.reply_text(f"✅ User <code>{target_user}</code> has been unmuted.", parse_mode=enums.ParseMode.HTML)
-    except errors.ChatAdminRequired:
-        await message.reply_text("❌ I don't have permission to unmute this user.", parse_mode=enums.ParseMode.HTML)
 
 if __name__ == "__main__":
     app.run()
