@@ -121,6 +121,32 @@ async def callback_handler(client, callback_query):
             await callback_query.message.edit("❌ I don't have permission to unban users.")
         await callback_query.answer()
 
+@app.on_message(filters.group & filters.command("mute"))
+async def mute_user(client, message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+
+    if not await is_admin(client, chat_id, user_id):
+        await message.reply_text("❌ You are not an administrator.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    args = message.text.split(" ")
+    if len(args) < 2:
+        await message.reply_text("❌ Please provide a username or user ID to mute.", parse_mode=enums.ParseMode.HTML)
+        return
+
+    target_user = args[1]
+    try:
+        target_user_id = int(target_user)  # If it's a user ID
+    except ValueError:
+        target_user_id = (await client.get_users(target_user)).id  # If it's a username
+
+    try:
+        await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions())
+        await message.reply_text(f"✅ User <code>{target_user}</code> has been muted.", parse_mode=enums.ParseMode.HTML)
+    except errors.ChatAdminRequired:
+        await message.reply_text("❌ I don't have permission to mute this user.", parse_mode=enums.ParseMode.HTML)
+
 @app.on_message(filters.group & filters.command("unmute"))
 async def unmute_user(client, message):
     chat_id = message.chat.id
@@ -132,7 +158,7 @@ async def unmute_user(client, message):
 
     args = message.text.split(" ")
     if len(args) < 2:
-        await message.reply_text("❌ Please provide a username or user ID.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("❌ Please provide a username or user ID to unmute.", parse_mode=enums.ParseMode.HTML)
         return
 
     target_user = args[1]
