@@ -19,13 +19,20 @@ default_warning_limit = 3
 default_punishment = "mute"
 default_punishment_set = ("warn", default_warning_limit, default_punishment)
 
-# List of approved user IDs (add IDs of the approved users here)
-approved_users = {123456789, 987654321}  # Replace with real user IDs
-
+# Function to check if the user is admin
 async def is_admin(client, chat_id, user_id):
     async for member in client.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
         if member.user.id == user_id:
             return True
+    return False
+
+# Function to check if the user is approved (use a custom flag or role)
+async def is_approved(client, chat_id, user_id):
+    # Here, check if the user has a custom role or if they're marked as approved
+    # For example, a specific label "approved" or via a bot command.
+    member = await client.get_chat_member(chat_id, user_id)
+    if "approved" in member.status.lower():  # You can change this condition to match the group's approval method
+        return True
     return False
 
 @app.on_message(filters.private & filters.command("start"))
@@ -51,8 +58,8 @@ async def check_bio(client, message):
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    # Check if user is admin or approved user
-    if await is_admin(client, chat_id, user_id) or user_id in approved_users:
+    # Check if user is admin or approved
+    if await is_admin(client, chat_id, user_id) or await is_approved(client, chat_id, user_id):
         return  # Ignore admins and approved users
 
     user_full = await client.get_chat(user_id)
@@ -130,5 +137,4 @@ async def callback_handler(client, callback_query):
             await callback_query.message.edit("❌ I don't have permission to unban users.")
         await callback_query.answer()
 
-if __name__ == "__main__":
-    app.run()
+app.run()
