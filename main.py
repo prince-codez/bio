@@ -173,4 +173,5 @@ async def unmute_user(client, message):
     except errors.ChatAdminRequired:
         await message.reply_text("❌ I don't have permission to unmute this user.", parse_mode=enums.ParseMode.HTML)
 
-app.run()
+if __name__ == "__main__":
+    app.run()
