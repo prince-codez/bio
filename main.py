@@ -19,6 +19,9 @@ default_warning_limit = 3
 default_punishment = "mute"
 default_punishment_set = ("warn", default_warning_limit, default_punishment)
 
+# List of approved user IDs (add IDs of the approved users here)
+approved_users = {123456789, 987654321}  # Replace with real user IDs
+
 async def is_admin(client, chat_id, user_id):
     async for member in client.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
         if member.user.id == user_id:
@@ -47,6 +50,10 @@ async def start_command(client, message):
 async def check_bio(client, message):
     chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Check if user is admin or approved user
+    if await is_admin(client, chat_id, user_id) or user_id in approved_users:
+        return  # Ignore admins and approved users
 
     user_full = await client.get_chat(user_id)
     bio = user_full.bio
