@@ -1,7 +1,6 @@
-import os 
+import os
 from pyrogram import Client, filters, enums, errors
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ChatPermissions
-import os
 import re
 
 API_ID = int(os.getenv("API_ID", 0))
@@ -26,10 +25,23 @@ async def is_admin(client, chat_id, user_id):
     return False
 
 @app.on_message(filters.private & filters.command("start"))
-async def start(client, message):
-    user = message.from_user
-    welcome_text = f"👋 <b>Welcome {user.first_name}!</b>\n\nI am an anti-link bot. If your bio contains any links, I will take action!\n\nUse /config to set warnings & punishments."
-    await message.reply_text(welcome_text, parse_mode=enums.ParseMode.HTML)
+async def start_command(client, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔮 𝐀ᴅᴅ 𝐌ᴇ 𝐈ɴ 𝐘ᴏᴜʀ 𝐆ʀᴏᴜᴘ 🔮", url="https://t.me/bio_link_restriction_bot?startgroup=s&admin=delete_messages+manage_video_chats+pin_messages+invite_users")],
+        [InlineKeyboardButton("☔ Uᴘᴅᴀᴛᴇs ☔", url="https://t.me/SWEETY_BOT_UPDATE")]
+    ])
+    
+    await message.reply_text(
+        "🐬 Bɪᴏ Lɪɴᴋ Rᴇsᴛʀɪᴄᴛɪᴏɴ Bᴏᴛ 🐬\n\n"
+        "🚫 ᴛʜɪs ʙᴏᴛ ᴅᴇᴛᴇᴄᴛs ʟɪɴᴋs ɪɴ ᴜsᴇʀ ʙɪᴏs ᴀɴᴅ ʀᴇsᴛʀɪᴄᴛs ᴛʜᴇᴍ.\n"
+        "⚠️ ᴀғᴛᴇʀ 𝟹 ᴡᴀʀɴɪɴɢs, ᴛʜᴇ ᴜsᴇʀ ɪs ʀᴇsᴛʀɪᴄᴛᴇᴅ ғʀᴏᴍ sᴇɴᴅɪɴɢ ᴍᴇssᴀɢᴇs.\n"
+        "✅ ᴀᴅᴍɪɴs ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇᴅ ᴜsᴇʀs ᴀʀᴇ ɪɢɴᴏʀᴇᴅ.\n"
+        "🔓 ᴀᴅᴍɪɴs ᴄᴀɴ ᴜɴʀᴇsᴛʀɪᴄᴛ ᴜsᴇʀs ᴍᴀɴᴜᴀʟʟʏ ᴜsɪɴɢ /unrestrict @username.\n"
+        "🛠 ᴜsᴇ /approve ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n\n"
+        "🔥 𝐀ᴅᴅ 𝐌ᴇ 𝐓ᴏ 𝐘ᴏᴜʀ 𝐆ʀᴏᴜᴘ ғᴏʀ 𝐏ʀᴏᴛᴇᴄᴛɪᴏɴ!",
+        reply_markup=keyboard,
+        parse_mode=enums.ParseMode.HTML
+    )
 
 @app.on_message(filters.group)
 async def check_bio(client, message):
