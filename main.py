@@ -42,6 +42,15 @@ async def start_command(client, message):
         parse_mode=enums.ParseMode.HTML
     )
 
+@app.on_message(filters.group & filters.command("start"))
+async def group_start_command(client, message):
+    await message.reply_text(
+        "Hello! I can help you restrict bio links and manage users in this group. For commands, use /mute, /unmute, and others as needed.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📜 Rules", url="https://t.me/your_group_link")],
+        ])
+    )
+
 @app.on_message(filters.group)
 async def check_bio(client, message):
     chat_id = message.chat.id
@@ -132,20 +141,21 @@ async def mute_user(client, message):
 
     args = message.text.split(" ")
     if len(args) < 2:
-        await message.reply_text("❌ Please provide a username or user ID to mute.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("❌ Please provide a username or user ID to mute.")
         return
 
-    target_user = args[1]
-    try:
-        target_user_id = int(target_user)  # If it's a user ID
-    except ValueError:
-        target_user_id = (await client.get_users(target_user)).id  # If it's a username
+    target = args[1]
+    if target.isdigit():
+        target_user_id = int(target)
+    else:
+        target_user = await client.get_users(target)
+        target_user_id = target_user.id
 
     try:
         await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions())
-        await message.reply_text(f"✅ User <code>{target_user}</code> has been muted.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text(f"✅ User <code>{target_user_id}</code> has been muted.", parse_mode=enums.ParseMode.HTML)
     except errors.ChatAdminRequired:
-        await message.reply_text("❌ I don't have permission to mute this user.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("❌ I don't have permission to mute users.")
 
 @app.on_message(filters.group & filters.command("unmute"))
 async def unmute_user(client, message):
@@ -158,20 +168,18 @@ async def unmute_user(client, message):
 
     args = message.text.split(" ")
     if len(args) < 2:
-        await message.reply_text("❌ Please provide a username or user ID to unmute.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("❌ Please provide a username or user ID to unmute.")
         return
 
-    target_user = args[1]
-    try:
-        target_user_id = int(target_user)  # If it's a user ID
-    except ValueError:
-        target_user_id = (await client.get_users(target_user)).id  # If it's a username
+    target = args[1]
+    if target.isdigit():
+        target_user_id = int(target)
+    else:
+        target_user = await client.get_users(target)
+        target_user_id = target_user.id
 
     try:
         await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
-        await message.reply_text(f"✅ User <code>{target_user}</code> has been unmuted.", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text(f"✅ User <code>{target_user_id}</code> has been unmuted.", parse_mode=enums.ParseMode.HTML)
     except errors.ChatAdminRequired:
-        await message.reply_text("❌ I don't have permission to unmute this user.", parse_mode=enums.ParseMode.HTML)
-
-if __name__ == "__main__":
-    app.run()
+        await message.reply_text("❌ I don't have permission to unmute users.")
