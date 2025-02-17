@@ -1,7 +1,7 @@
 import os
+import re
 from pyrogram import Client, filters, enums, errors
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ChatPermissions
-import re
 
 API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH", "")
@@ -17,6 +17,8 @@ punishment = {}
 default_warning_limit = 3  
 default_punishment = "mute"
 default_punishment_set = ("warn", default_warning_limit, default_punishment)
+
+approved_users = {}
 
 async def is_admin(client, chat_id, user_id):
     async for member in client.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
@@ -37,7 +39,8 @@ async def start_command(client, message):
         "⚠️ ᴀғᴛᴇʀ 𝟹 ᴡᴀʀɴɪɴɢs, ᴛʜᴇ ᴜsᴇʀ ɪs ʀᴇsᴛʀɪᴄᴛᴇᴅ ғʀᴏᴍ sᴇɴᴅɪɴɢ ᴍᴇssᴀɢᴇs.\n"
         "✅ ᴀᴅᴍɪɴs ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇᴅ ᴜsᴇʀs ᴀʀᴇ ɪɢɴᴏʀᴇᴅ.\n"
         "🔓 ᴀᴅᴍɪɴs ᴄᴀɴ ᴜɴʀᴇsᴛʀɪᴄᴛ ᴜsᴇʀs ᴍᴀɴᴜᴀʟʟʏ ᴜsɪɴɢ /unrestrict @username.\n"
-        "🛠 ᴜsᴇ /approve ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n\n"
+        "🛠 ᴜsᴇ /approve @username ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n"
+        "🛠 ᴜsᴇ /unapprove @username ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴛʜᴇ ᴜsᴇʀ ғʀᴏᴍ ᴛʜᴇ ᴀᴘᴘʀᴏᴠᴇᴅ ʟɪsᴛ.\n\n"
         "🔥 𝐀ᴅᴅ 𝐌ᴇ 𝐓ᴏ 𝐘ᴏᴜʀ 𝐆ʀᴏᴜᴘ ғᴏʀ 𝐏ʀᴏᴛᴇᴄᴛɪᴏɴ!",
         reply_markup=keyboard,
         parse_mode=enums.ParseMode.HTML
@@ -47,6 +50,9 @@ async def start_command(client, message):
 async def check_bio(client, message):
     chat_id = message.chat.id
     user_id = message.from_user.id
+
+    if user_id in approved_users.get(chat_id, []):
+        return  
 
     user_full = await client.get_chat(user_id)
     bio = user_full.bio
@@ -59,67 +65,49 @@ async def check_bio(client, message):
             await message.reply_text("Please grant me delete permission.")
             return
 
-        action = punishment.get(chat_id, default_punishment_set)
-        if action[0] == "warn":
-            warnings[user_id] = warnings.get(user_id, 0) + 1
-            sent_msg = await message.reply_text(f"{user_name} please remove any links from your bio. ⚠️ Warning {warnings[user_id]}/{action[1]}", parse_mode=enums.ParseMode.HTML)
+        warnings[user_id] = warnings.get(user_id, 0) + 1
+        if warnings[user_id] >= default_warning_limit:
+            await client.restrict_chat_member(chat_id, user_id, ChatPermissions())
+            await message.reply_text(f"{user_name} has been 🔇 muted for link in bio.")
+        else:
+            await message.reply_text(f"{user_name} please remove any links from your bio. ⚠️ Warning {warnings[user_id]}/{default_warning_limit}", parse_mode=enums.ParseMode.HTML)
 
-            if warnings[user_id] >= action[1]:
-                try:
-                    if action[2] == "mute":
-                        await client.restrict_chat_member(chat_id, user_id, ChatPermissions())
-                        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unmute", callback_data=f"unmute_{user_id}")]])
-                        await sent_msg.edit(f"{user_name} has been 🔇 muted for [ Link In Bio ].", reply_markup=keyboard)
-                    elif action[2] == "ban":
-                        await client.ban_chat_member(chat_id, user_id)
-                        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unban", callback_data=f"unban_{user_id}")]])
-                        await sent_msg.edit(f"{user_name} has been 🔨 banned for [ Link In Bio ].", reply_markup=keyboard)
-                except errors.ChatAdminRequired:
-                    await sent_msg.edit(f"I don't have permission to {action[2]} users.")
-        elif action[0] == "mute":
-            try:
-                await client.restrict_chat_member(chat_id, user_id, ChatPermissions())
-                keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unmute", callback_data=f"unmute_{user_id}")]])
-                await message.reply_text(f"{user_name} has been 🔇 muted for [ Link In Bio ].", reply_markup=keyboard)
-            except errors.ChatAdminRequired:
-                await message.reply_text("I don't have permission to mute users.")
-        elif action[0] == "ban":
-            try:
-                await client.ban_chat_member(chat_id, user_id)
-                keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Unban", callback_data=f"unban_{user_id}")]])
-                await message.reply_text(f"{user_name} has been 🔨 banned for [ Link In Bio ].", reply_markup=keyboard)
-            except errors.ChatAdminRequired:
-                await message.reply_text("I don't have permission to ban users.")
-    else:
-        if user_id in warnings:
-            del warnings[user_id]
+@app.on_message(filters.command("approve") & filters.group)
+async def approve_user(client, message):
+    chat_id = message.chat.id
+    user = message.reply_to_message.from_user if message.reply_to_message else message.command[1]
 
-@app.on_callback_query()
-async def callback_handler(client, callback_query):
-    data = callback_query.data
-    chat_id = callback_query.message.chat.id
-    user_id = callback_query.from_user.id
-
-    if not await is_admin(client, chat_id, user_id):
-        await callback_query.answer("❌ You are not an administrator", show_alert=True)
+    if not await is_admin(client, chat_id, message.from_user.id):
+        await message.reply_text("❌ Only admins can approve users!")
         return
 
-    if data.startswith("unmute_"):
-        target_user_id = int(data.split("_")[1])
+    if isinstance(user, str):
         try:
-            await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
-            await callback_query.message.edit(f"✅ <b>Unmuted</b> user <code>{target_user_id}</code>", parse_mode=enums.ParseMode.HTML)
-        except errors.ChatAdminRequired:
-            await callback_query.message.edit("❌ I don't have permission to unmute users.")
-        await callback_query.answer()
+            user = await client.get_users(user)
+        except errors.UsernameNotOccupied:
+            await message.reply_text("❌ User not found!")
+            return
 
-    elif data.startswith("unban_"):
-        target_user_id = int(data.split("_")[1])
+    approved_users.setdefault(chat_id, []).append(user.id)
+    await message.reply_text(f"✅ {user.mention} has been approved and will not be restricted.")
+
+@app.on_message(filters.command("unapprove") & filters.group)
+async def unapprove_user(client, message):
+    chat_id = message.chat.id
+    user = message.reply_to_message.from_user if message.reply_to_message else message.command[1]
+
+    if not await is_admin(client, chat_id, message.from_user.id):
+        await message.reply_text("❌ Only admins can unapprove users!")
+        return
+
+    if isinstance(user, str):
         try:
-            await client.unban_chat_member(chat_id, target_user_id)
-            await callback_query.message.edit(f"✅ <b>Unbanned</b> user <code>{target_user_id}</code>", parse_mode=enums.ParseMode.HTML)
-        except errors.ChatAdminRequired:
-            await callback_query.message.edit("❌ I don't have permission to unban users.")
-        await callback_query.answer()
+            user = await client.get_users(user)
+        except errors.UsernameNotOccupied:
+            await message.reply_text("❌ User not found!")
+            return
+
+    approved_users.get(chat_id, []).remove(user.id)
+    await message.reply_text(f"🚫 {user.mention} has been unapproved and will be monitored again.")
 
 app.run()
