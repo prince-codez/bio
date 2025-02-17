@@ -36,9 +36,7 @@ async def approve_user(client, message):
         return
 
     approved_users.add(message.reply_to_message.from_user.id)
-    await message.reply_text(
-        f"<b>✅ {message.reply_to_message.from_user.mention} has been approved.</b>", parse_mode=enums.ParseMode.HTML
-    )
+    await message.reply_text(f"<b>✅ {message.reply_to_message.from_user.mention} has been approved.</b>", parse_mode=enums.ParseMode.HTML)
 
 @app.on_message(filters.group)
 async def check_bio(client, message):
@@ -56,11 +54,8 @@ async def check_bio(client, message):
         warnings.setdefault(chat_id, {}).setdefault(user_id, 0)
         warnings[chat_id][user_id] += 1
 
-        if warnings[chat_id][user_id] < 4:
-            await message.reply_text(
-                f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/4\n\n"
-                f"{user_name}, please remove the link from your bio or you will be muted!"
-            )
+        if warnings[chat_id][user_id] < 3:
+            await message.reply_text(f"⚠️ 🚷 𝐖ᴀʀɴɪɴɢ 🚷 {warnings[chat_id][user_id]}/3\n\n{user_name}, please remove the link from your bio or you will be restricted from sending messages!")
         else:
             try:
                 await message.delete()
@@ -81,54 +76,11 @@ async def check_bio(client, message):
 
                 await client.send_message(
                     chat_id,
-                    f"🚫 {user_name} has been muted for 3 hours due to repeated violations.\n"
-                    "🔇 They cannot send messages until an admin unmutes them.\n\n"
-                    "⚠️ **Please remove the link from your bio to avoid further action.**"
+                    f"🚫 {user_name} has been restricted from sending messages for 3 hours due to repeated violations.\n\n"
+                    "⚠️ **Please remove the link from your bio to avoid further actions.**"
                 )
             except errors.ChatAdminRequired:
-                await message.reply_text("❌ I don't have permission to mute users.")
-
-# ⚠️ **Naya Feature:** Muted user agar message kare to bot automatically ek warning bheje
-@app.on_message(filters.group)
-async def detect_muted_user(client, message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    if user_id in muted_users:
-        user_full = await client.get_chat(user_id)
-        user_name = f"@{user_full.username}" if user_full.username else f"{user_full.first_name}"
-        
-        try:
-            await message.delete()
-        except errors.MessageDeleteForbidden:
-            pass  # Agar delete nahi ho sakta to ignore kar do
-
-        await client.send_message(
-            chat_id,
-            f"⚠️ {user_name}, aap mute ho chuke ho! Aap 3 ghante tak message nahi bhej sakte.\n"
-            "🚫 Apne bio se link hatao ya admin se baat karo."
-        )
-
-@app.on_callback_query()
-async def callback_handler(client, callback_query):
-    data = callback_query.data
-    chat_id = callback_query.message.chat.id
-    user_id = callback_query.from_user.id
-
-    if not await is_admin(client, chat_id, user_id):
-        await callback_query.answer("❌ You are not an admin", show_alert=True)
-        return
-
-    if data.startswith("unmute_"):
-        target_user_id = int(data.split("_")[1])
-        try:
-            await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
-            if target_user_id in muted_users:
-                del muted_users[target_user_id]
-            await callback_query.message.edit_text(f"✅ {target_user_id} has been unmuted.")
-            await client.send_message(chat_id, f"🔊 {target_user_id} can now send messages again.")
-        except errors.ChatAdminRequired:
-            await callback_query.message.edit_text("❌ I don't have permission to unmute users.")
+                await message.reply_text("❌ I don't have permission to restrict users.")
 
 @app.on_message(filters.group & filters.command("unmute"))
 async def manual_unmute(client, message):
@@ -162,7 +114,7 @@ async def start_command(client, message):
     await message.reply_text(
         "🐬 Bɪᴏ Lɪɴᴋ Rᴇsᴛʀɪᴄᴛɪᴏɴ Bᴏᴛ 🐬\n\n"
         "🚫 This bot detects links in user bios and restricts them.\n"
-        "⚠️ After 4 warnings, the user is muted for 3 hours.\n"
+        "⚠️ After 3 warnings, the user is restricted from sending messages for 3 hours.\n"
         "✅ Admins and approved users are ignored.\n"
         "🔓 Admins can unmute users manually using /unmute @username.\n"
         "🛠 Use /approve to exclude a user from restriction.\n\n"
