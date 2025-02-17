@@ -14,8 +14,6 @@ url_pattern = re.compile(r'(https?://|www\.)[a-zA-Z0-9.\-]+(\.[a-zA-Z]{2,})+(/[a
 warnings = {}
 punishment = {}
 
-approved_users = {}
-
 default_warning_limit = 3  
 default_punishment = "mute"
 default_punishment_set = ("warn", default_warning_limit, default_punishment)
@@ -38,7 +36,7 @@ async def start_command(client, message):
         "🚫 ᴛʜɪs ʙᴏᴛ ᴅᴇᴛᴇᴄᴛs ʟɪɴᴋs ɪɴ ᴜsᴇʀ ʙɪᴏs ᴀɴᴅ ʀᴇsᴛʀɪᴄᴛs ᴛʜᴇᴍ.\n"
         "⚠️ ᴀғᴛᴇʀ 𝟹 ᴡᴀʀɴɪɴɢs, ᴛʜᴇ ᴜsᴇʀ ɪs ʀᴇsᴛʀɪᴄᴛᴇᴅ ғʀᴏᴍ sᴇɴᴅɪɴɢ ᴍᴇssᴀɢᴇs.\n"
         "✅ ᴀᴅᴍɪɴs ᴀɴᴅ ᴀᴘᴘʀᴏᴠᴇᴅ ᴜsᴇʀs ᴀʀᴇ ɪɢɴᴏʀᴇᴅ.\n"
-        "🛠 ᴀᴅᴍɪɴs ᴜsᴇ /approve ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n\n"
+        "🛠 ᴀᴅᴍɪɴs ᴜsᴇ /unmute ᴛᴏ ᴇxᴄʟᴜᴅᴇ ᴀ ᴜsᴇʀ ғʀᴏᴍ ʀᴇsᴛʀɪᴄᴛɪᴏɴ.\n\n"
         "🔥 𝐀ᴅᴅ 𝐌ᴇ 𝐓ᴏ 𝐘ᴏᴜʀ 𝐆ʀᴏᴜᴘ ғᴏʀ 𝐏ʀᴏᴛᴇᴄᴛɪᴏɴ!",
         reply_markup=keyboard,
         parse_mode=enums.ParseMode.HTML
@@ -123,39 +121,30 @@ async def callback_handler(client, callback_query):
             await callback_query.message.edit("❌ I don't have permission to unban users.")
         await callback_query.answer()
 
-@app.on_message(filters.command("approve"))
-async def approve_user(client, message):
+@app.on_message(filters.group & filters.command("unmute"))
+async def unmute_user(client, message):
     chat_id = message.chat.id
-    user_id = message.reply_to_message.from_user.id if message.reply_to_message else None
+    user_id = message.from_user.id
 
-    if not user_id:
-        await message.reply("Please reply to a user's message to approve them.")
+    if not await is_admin(client, chat_id, user_id):
+        await message.reply_text("❌ You are not an administrator.", parse_mode=enums.ParseMode.HTML)
         return
 
-    if not await is_admin(client, chat_id, message.from_user.id):
-        await message.reply("❌ You are not an administrator.")
+    args = message.text.split(" ")
+    if len(args) < 2:
+        await message.reply_text("❌ Please provide a username or user ID.", parse_mode=enums.ParseMode.HTML)
         return
 
-    approved_users[user_id] = True
-    await message.reply(f"✅ User <code>{user_id}</code> has been approved and will not be restricted anymore.", parse_mode=enums.ParseMode.HTML)
+    target_user = args[1]
+    try:
+        target_user_id = int(target_user)  # If it's a user ID
+    except ValueError:
+        target_user_id = (await client.get_users(target_user)).id  # If it's a username
 
-@app.on_message(filters.command("unapprove"))
-async def unapprove_user(client, message):
-    chat_id = message.chat.id
-    user_id = message.reply_to_message.from_user.id if message.reply_to_message else None
-
-    if not user_id:
-        await message.reply("Please reply to a user's message to unapprove them.")
-        return
-
-    if not await is_admin(client, chat_id, message.from_user.id):
-        await message.reply("❌ You are not an administrator.")
-        return
-
-    if user_id in approved_users:
-        del approved_users[user_id]
-        await message.reply(f"❌ User <code>{user_id}</code> has been unapproved and will be restricted.", parse_mode=enums.ParseMode.HTML)
-    else:
-        await message.reply(f"❌ User <code>{user_id}</code> is not approved.")
+    try:
+        await client.restrict_chat_member(chat_id, target_user_id, ChatPermissions(can_send_messages=True))
+        await message.reply_text(f"✅ User <code>{target_user}</code> has been unmuted.", parse_mode=enums.ParseMode.HTML)
+    except errors.ChatAdminRequired:
+        await message.reply_text("❌ I don't have permission to unmute this user.", parse_mode=enums.ParseMode.HTML)
 
 app.run()
